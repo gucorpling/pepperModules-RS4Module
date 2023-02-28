@@ -82,7 +82,7 @@ public class SqueezerModuleManipulator extends PepperManipulatorImpl {
                 for (SLayer l : n.getLayers()) {
                     layerNames.add(l.getName());
                 }
-                if (targetLayer != null && layerNames.contains(targetLayer)) {
+                if (targetLayer != null && !layerNames.contains(targetLayer)) {
                     continue;
                 }
                 List<SRelation> relations = n.getOutRelations();
