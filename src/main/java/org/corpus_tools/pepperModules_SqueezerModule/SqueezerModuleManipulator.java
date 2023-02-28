@@ -66,13 +66,23 @@ public class SqueezerModuleManipulator extends PepperManipulatorImpl {
 
         @Override
         public DOCUMENT_STATUS mapSDocument() {
+            String targetLayer = ((SqueezerModuleManipulatorProperties) this.getProperties()).getTargetLayer();
             // set up module properties
             List<SNode> nodes = this.getDocument().getDocumentGraph().getNodes();
 
             // Loop over all SStructures and note the IDs of all the targets of their outgoing relations
             Map<Set<String>, List<SNode>> equalNodeMap = new HashMap<>();
             for (SNode n : nodes) {
+                // Skip if not SStructure
                 if (!(n instanceof SStructure)) {
+                    continue;
+                }
+                // Skip if not in target layer
+                Set<String> layerNames = new HashSet<>();
+                for (SLayer l : n.getLayers()) {
+                    layerNames.add(l.getName());
+                }
+                if (targetLayer != null && layerNames.contains(targetLayer)) {
                     continue;
                 }
                 List<SRelation> relations = n.getOutRelations();
