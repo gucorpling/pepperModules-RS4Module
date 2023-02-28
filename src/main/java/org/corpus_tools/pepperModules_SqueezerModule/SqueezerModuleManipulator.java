@@ -1,8 +1,6 @@
 package org.corpus_tools.pepperModules_SqueezerModule;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 import org.corpus_tools.pepper.common.DOCUMENT_STATUS;
 import org.corpus_tools.pepper.common.PepperConfiguration;
@@ -13,6 +11,7 @@ import org.corpus_tools.pepper.modules.PepperMapper;
 import org.corpus_tools.pepper.modules.PepperModule;
 import org.corpus_tools.pepper.modules.PepperModuleProperties;
 import org.corpus_tools.pepper.modules.exceptions.PepperModuleDataException;
+import org.corpus_tools.pepper.modules.exceptions.PepperModuleException;
 import org.corpus_tools.pepper.modules.exceptions.PepperModuleNotReadyException;
 import org.corpus_tools.salt.SALT_TYPE;
 import org.corpus_tools.salt.SaltFactory;
@@ -24,6 +23,7 @@ import org.corpus_tools.salt.core.SLayer;
 import org.corpus_tools.salt.core.SNode;
 import org.corpus_tools.salt.core.SRelation;
 import org.corpus_tools.salt.graph.Identifier;
+import org.corpus_tools.salt.graph.Node;
 import org.eclipse.emf.common.util.URI;
 import org.osgi.service.component.annotations.Component;
 
@@ -68,11 +68,58 @@ public class SqueezerModuleManipulator extends PepperManipulatorImpl {
         public DOCUMENT_STATUS mapSDocument() {
             // set up module properties
             List<SNode> nodes = this.getDocument().getDocumentGraph().getNodes();
+
+            // Loop over all SStructures and note the IDs of all the targets of their outgoing relations
+            Map<Set<String>, List<SNode>> equalNodeMap = new HashMap<>();
+            for (SNode n : nodes) {
+                if (!(n instanceof SStructure)) {
+                    continue;
+                }
+                List<SRelation> relations = n.getOutRelations();
+                Set<String> targetSet = new HashSet<>();
+                for (SRelation r : relations) {
+                    targetSet.add(r.getTarget().getId());
+                }
+                if (!equalNodeMap.containsKey(targetSet)) {
+                    equalNodeMap.put(targetSet, new ArrayList<SNode>());
+                }
+                equalNodeMap.get(targetSet).add(n);
+            }
+
+            // Find SStructures that overlap exactly in their outgoing target ID sets.
+            // If we find two nodes that overlap exactly, then assume that one of them
+            // does not have annotations. Move the incoming relation for the annotation-less
+            // node to the node with annotations, and then delete the annotation-less node.
+            Map<SNode, SNode> nodeMap = new HashMap<>();
+            for (Map.Entry<Set<String>, List<SNode>> kvp : equalNodeMap.entrySet()) {
+                List<SNode> sameNodes = kvp.getValue();
+                if (sameNodes.size() < 2) {
+                    continue;
+                } else if (sameNodes.size() > 2) {
+                    throw new PepperModuleException("Found more than two nodes with same extent!");
+                } else {
+                    SNode node1 = sameNodes.get(0);
+                    SNode node2 = sameNodes.get(1);
+                    if ((node1.getAnnotations().size() == 0 && node2.getAnnotations().size() == 0)
+                        || (node1.getAnnotations().size() > 0 && node2.getAnnotations().size() > 0)) {
+                        throw new PepperModuleException("Expected exactly one node to lack annotations");
+                    }
+
+                    if (node1.getAnnotations().size() == 0) {
+                        nodeMap.put(node1, node2);
+                    } else {
+                        nodeMap.put(node2, node1);
+                    }
+                }
+            }
+
+            // Perform the deletion described above
             for (int i = nodes.size() - 1; i >= 0; i--) {
                 SNode n = nodes.get(i);
-                if (n instanceof SStructure && n.getAnnotations().size() == 0) {
+                if (nodeMap.containsKey(n)) {
+                    SNode n2 = nodeMap.get(n);
                     for (SRelation r : n.getInRelations()) {
-                        this.getDocument().getDocumentGraph().removeRelation(r);
+                        r.setTarget(n2);
                     }
                     for (SRelation r : n.getOutRelations()) {
                         this.getDocument().getDocumentGraph().removeRelation(r);
