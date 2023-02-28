@@ -66,7 +66,7 @@ public class SqueezerModuleManipulator extends PepperManipulatorImpl {
 
         @Override
         public DOCUMENT_STATUS mapSDocument() {
-            String targetLayer = ((SqueezerModuleManipulatorProperties) this.getProperties()).getTargetLayer();
+            String targetLayer = getProperties().getProperties().getProperty(SqueezerModuleManipulatorProperties.TARGET_LAYER, null);
             // set up module properties
             List<SNode> nodes = this.getDocument().getDocumentGraph().getNodes();
 
