@@ -101,24 +101,30 @@ public class SqueezerModuleManipulator extends PepperManipulatorImpl {
             // does not have annotations. Move the incoming relation for the annotation-less
             // node to the node with annotations, and then delete the annotation-less node.
             Map<SNode, SNode> nodeMap = new HashMap<>();
+            Set<SNode> toDelete = new HashSet<>();
             for (Map.Entry<Set<String>, List<SNode>> kvp : equalNodeMap.entrySet()) {
                 List<SNode> sameNodes = kvp.getValue();
-                if (sameNodes.size() < 2) {
-                    continue;
-                } else if (sameNodes.size() > 2) {
-                    throw new PepperModuleException("Found more than two nodes with same extent!");
-                } else {
-                    SNode node1 = sameNodes.get(0);
-                    SNode node2 = sameNodes.get(1);
-                    if ((node1.getAnnotations().size() == 0 && node2.getAnnotations().size() == 0)
-                        || (node1.getAnnotations().size() > 0 && node2.getAnnotations().size() > 0)) {
-                        throw new PepperModuleException("Expected exactly one node to lack annotations");
+                if (sameNodes.size() >= 2) {
+                    List<SNode> noAnno = new ArrayList<>();
+                    List<SNode> withAnno = new ArrayList<>();
+                    for (SNode n : sameNodes) {
+                        if (n.getAnnotations().size() == 0) {
+                            noAnno.add(n);
+                        } else {
+                            withAnno.add(n);
+                        }
                     }
 
-                    if (node1.getAnnotations().size() == 0) {
-                        nodeMap.put(node1, node2);
-                    } else {
-                        nodeMap.put(node2, node1);
+                    if (noAnno.size() < withAnno.size()) {
+                        throw new PepperModuleException("Expected at least as many noAnno nodes as withAnno nodes");
+                    }
+
+                    int i;
+                    for (i = 0; i < withAnno.size(); i++) {
+                        nodeMap.put(noAnno.get(i), withAnno.get(i));
+                    }
+                    for ( ; i < noAnno.size(); i++) {
+                        toDelete.add(noAnno.get(i));
                     }
                 }
             }
@@ -134,6 +140,9 @@ public class SqueezerModuleManipulator extends PepperManipulatorImpl {
                     for (SRelation r : n.getOutRelations()) {
                         this.getDocument().getDocumentGraph().removeRelation(r);
                     }
+                    this.getDocument().getDocumentGraph().removeNode(n);
+                }
+                if (toDelete.contains(n)) {
                     this.getDocument().getDocumentGraph().removeNode(n);
                 }
             }
