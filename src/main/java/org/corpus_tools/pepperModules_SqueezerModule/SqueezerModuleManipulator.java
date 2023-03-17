@@ -1,6 +1,7 @@
 package org.corpus_tools.pepperModules_SqueezerModule;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import org.corpus_tools.pepper.common.DOCUMENT_STATUS;
 import org.corpus_tools.pepper.common.PepperConfiguration;
@@ -16,12 +17,8 @@ import org.corpus_tools.pepper.modules.exceptions.PepperModuleNotReadyException;
 import org.corpus_tools.salt.SALT_TYPE;
 import org.corpus_tools.salt.SaltFactory;
 import org.corpus_tools.salt.common.*;
-import org.corpus_tools.salt.core.GraphTraverseHandler;
-import org.corpus_tools.salt.core.SAnnotation;
+import org.corpus_tools.salt.core.*;
 import org.corpus_tools.salt.core.SGraph.GRAPH_TRAVERSE_TYPE;
-import org.corpus_tools.salt.core.SLayer;
-import org.corpus_tools.salt.core.SNode;
-import org.corpus_tools.salt.core.SRelation;
 import org.corpus_tools.salt.graph.Identifier;
 import org.corpus_tools.salt.graph.Node;
 import org.eclipse.emf.common.util.URI;
@@ -66,45 +63,59 @@ public class SqueezerModuleManipulator extends PepperManipulatorImpl {
 
         @Override
         public DOCUMENT_STATUS mapSDocument() {
-            String targetLayer = getProperties().getProperties().getProperty(SqueezerModuleManipulatorProperties.TARGET_LAYER, null);
+            Properties props = getProperties().getProperties();
+            String targetLayer = props.getProperty(SqueezerModuleManipulatorProperties.TARGET_LAYER, null);
             // set up module properties
-            List<SNode> nodes = this.getDocument().getDocumentGraph().getNodes();
+            List<SNode> nodes = new ArrayList<>(this.getDocument().getDocumentGraph().getNodes());
 
             // Loop over all SStructures and note the IDs of all the targets of their outgoing relations
             Map<Set<String>, List<SNode>> equalNodeMap = new HashMap<>();
             for (SNode n : nodes) {
-                // Skip if not SStructure
-                if (!(n instanceof SStructure)) {
+                // Skip if not SStructure or if it's a signal node
+                if (!(n instanceof SStructure) || n.getAnnotation("signal_type") != null) {
                     continue;
                 }
+
                 // Skip if not in target layer
-                Set<String> layerNames = new HashSet<>();
-                for (SLayer l : n.getLayers()) {
-                    layerNames.add(l.getName());
+                if (targetLayer != null) {
+                    Set<String> layerNames = n.getLayers().stream()
+                            .map(SNamedElement::getName)
+                            .collect(Collectors.toSet());
+                    if (!layerNames.contains(targetLayer)) {
+                        continue;
+                    }
                 }
-                if (targetLayer != null && !layerNames.contains(targetLayer)) {
-                    continue;
-                }
+
+                // Note all TOKEN nodes that are direct "children" of this node
                 List<SRelation> relations = n.getOutRelations();
                 Set<String> targetSet = new HashSet<>();
                 for (SRelation r : relations) {
-                    targetSet.add(r.getTarget().getId());
+                    if (r.getTarget() instanceof SToken) {
+                        targetSet.add(r.getTarget().getId());
+                    }
+                }
+
+                // Map: key is the set of direct children, value is a list of nodes with those children
+                if (targetSet.isEmpty()) {
+                    continue;
                 }
                 if (!equalNodeMap.containsKey(targetSet)) {
-                    equalNodeMap.put(targetSet, new ArrayList<SNode>());
+                    equalNodeMap.put(targetSet, new ArrayList<>());
                 }
                 equalNodeMap.get(targetSet).add(n);
             }
 
-            // Find SStructures that overlap exactly in their outgoing target ID sets.
-            // If we find two nodes that overlap exactly, then assume that one of them
-            // does not have annotations. Move the incoming relation for the annotation-less
-            // node to the node with annotations, and then delete the annotation-less node.
             Map<SNode, SNode> nodeMap = new HashMap<>();
             Set<SNode> toDelete = new HashSet<>();
+
+            // For each set of nodes that have the exact same direct children...
             for (Map.Entry<Set<String>, List<SNode>> kvp : equalNodeMap.entrySet()) {
                 List<SNode> sameNodes = kvp.getValue();
+
+                // We only need to do something if there's more than one node with the same children
                 if (sameNodes.size() >= 2) {
+
+                    // Duplicated nodes that we want to squeeze out of the structure usually? have no annotation
                     List<SNode> noAnno = new ArrayList<>();
                     List<SNode> withAnno = new ArrayList<>();
                     for (SNode n : sameNodes) {
@@ -124,12 +135,17 @@ public class SqueezerModuleManipulator extends PepperManipulatorImpl {
                         nodeMap.put(noAnno.get(i), withAnno.get(i));
                     }
                     for ( ; i < noAnno.size(); i++) {
-                        toDelete.add(noAnno.get(i));
+                        if (!withAnno.isEmpty()) {
+                            nodeMap.put(noAnno.get(i), withAnno.get(withAnno.size() - 1));
+                        } else {
+                            toDelete.add(noAnno.get(i));
+                        }
                     }
                 }
             }
 
             // Perform the deletion described above
+            Collections.reverse(nodes);
             for (int i = nodes.size() - 1; i >= 0; i--) {
                 SNode n = nodes.get(i);
                 if (nodeMap.containsKey(n)) {
@@ -138,7 +154,11 @@ public class SqueezerModuleManipulator extends PepperManipulatorImpl {
                         r.setTarget(n2);
                     }
                     for (SRelation r : n.getOutRelations()) {
-                        this.getDocument().getDocumentGraph().removeRelation(r);
+                        if (r instanceof SPointingRelation) {
+                            r.setSource(n2);
+                        } else {
+                            this.getDocument().getDocumentGraph().removeRelation(r);
+                        }
                     }
                     this.getDocument().getDocumentGraph().removeNode(n);
                 }
