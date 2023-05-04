@@ -22,11 +22,5 @@ import org.corpus_tools.pepper.modules.PepperModuleProperty;
  */
 public class SqueezerModuleManipulatorProperties extends PepperModuleProperties {
     public static final String PREFIX = "Squeezer.";
-    public static final String TARGET_LAYER = PREFIX + "targetLayer";
-    public SqueezerModuleManipulatorProperties() {
-        this.addProperty(new PepperModuleProperty<String>(TARGET_LAYER, String.class, "When non-null, limit operations to nodes in this layer.", null, false));
-    }
-    public String getTargetLayer() {
-        return (String) this.getProperty(TARGET_LAYER).getValue();
-    }
+    public SqueezerModuleManipulatorProperties() {}
 }
