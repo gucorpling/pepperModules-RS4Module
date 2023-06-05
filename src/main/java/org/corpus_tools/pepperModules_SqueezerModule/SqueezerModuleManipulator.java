@@ -57,6 +57,8 @@ public class SqueezerModuleManipulator extends PepperManipulatorImpl {
 
     public static class SqueezerModuleMapper extends PepperMapperImpl implements GraphTraverseHandler {
 
+        private Map<String, UUID> rstId2UUID;
+        private Map<UUID, Integer> tokenUUID2index;
         private Map<UUID, SToken> tokenMap;
         private Map<UUID, SStructure> structureMap;
         private SLayer layer;
@@ -66,6 +68,7 @@ public class SqueezerModuleManipulator extends PepperManipulatorImpl {
 
         public SqueezerModuleMapper() {
             tokenMap = new HashMap<>();
+            tokenUUID2index = new HashMap<>();
             structureMap = new HashMap<>();
             signalsForSecondaryEdge = new HashMap<>();
             secondaryEdgeIndex = new HashMap<>();
@@ -135,7 +138,7 @@ public class SqueezerModuleManipulator extends PepperManipulatorImpl {
         private void constructSignal(SNode source, Map<Object, Object> signal) {
             String signalType = (String) signal.get("signal:type");
             String signalSubtype = (String) signal.get("signal:subtype");
-            List<Integer> tokenIds = (List<Integer>) signal.get("signal:tokens");
+            List<UUID> tokenIds = (List<UUID>) signal.get("signal:tokens");
             List<UUID> sourceIds = (List<UUID>) signal.get("signal:source");
             boolean isSecondary = sourceIds.size() > 1;
 
@@ -150,42 +153,43 @@ public class SqueezerModuleManipulator extends PepperManipulatorImpl {
 
             // Signal node to tokens
             // add annotations to the signal node: signal_text for space-separated tokens, signal_indexes for their indexes
-            List<SToken> tokens = this.getDocument().getDocumentGraph().getTokens();
             if (tokenIds != null) {
                 StringBuilder tokenTextSb = new StringBuilder();
                 StringBuilder tokenIndexesSb = new StringBuilder();
-                for (int i = 0; i < tokenIds.size(); i++) {
-                    SToken token = tokens.get(tokenIds.get(i) - 1);
+                for (UUID tokenId : tokenIds) {
+                    SToken token = this.tokenMap.get(tokenId);
                     String tokenText = getDocument().getDocumentGraph().getText(token);
 
                     tokenTextSb.append(tokenText);
-                    tokenIndexesSb.append(tokenIds.get(i).toString());
-                    if (i < tokenIds.size() - 1) {
-                        tokenTextSb.append(" ");
-                        tokenIndexesSb.append(" ");
-                    }
+                    tokenIndexesSb.append(this.tokenUUID2index.get(tokenId).toString());
+                    tokenTextSb.append(" ");
+                    tokenIndexesSb.append(" ");
+                }
+                if (tokenTextSb.length() > 0){
+                    tokenTextSb.deleteCharAt(tokenTextSb.length() - 1);
+                    tokenIndexesSb.deleteCharAt(tokenIndexesSb.length() - 1);
                 }
                 signalNode.createAnnotation(null, "signal_text", tokenTextSb.toString());
                 signalNode.createAnnotation(null, "signal_indexes", tokenIndexesSb.toString());
             }
 
             // also make the signal node dominate every token
-            int earliestToken = Integer.MAX_VALUE;
+            Integer earliestToken = Integer.MAX_VALUE;
             if (tokenIds != null) {
-                List<SToken> sTokens = this.getDocument().getDocumentGraph().getTokens();
-                for (int tokenId : tokenIds) {
+                for (UUID tokenId : tokenIds) {
                     SDominanceRelation tokRel = SaltFactory.createSDominanceRelation();
                     tokRel.setSource(signalNode);
                     // tokens are 1-indexed, list is 0-indexed
-                    tokRel.setTarget(sTokens.get(tokenId - 1));
+                    tokRel.setTarget(this.tokenMap.get(tokenId));
                     tokRel.setType("signal_token");
                     tokRel.setSource(signalNode);
                     this.getDocument().getDocumentGraph().addRelation(tokRel);
                     if (layer != null) {
                         layer.addRelation(tokRel);
                     }
-                    if (tokenId < earliestToken) {
-                        earliestToken = tokenId;
+                    Integer tokenIndex = this.tokenUUID2index.get(tokenId);
+                    if (tokenIndex < earliestToken) {
+                        earliestToken = tokenIndex;
                     }
                 }
             }
@@ -247,7 +251,7 @@ public class SqueezerModuleManipulator extends PepperManipulatorImpl {
                 signalNode.createProcessingAnnotation(null, "earliest_token", earliestToken);
                 SStructure secondaryEdge = this.secondaryEdgeIndex.get(sourceIds.get(0) + "-" + sourceIds.get(1));
                 if (!this.signalsForSecondaryEdge.containsKey(secondaryEdge)) {
-                    this.signalsForSecondaryEdge.put(secondaryEdge, new ArrayList<>());
+                    this.signalsForSecondaryEdge.put(secondaryEdge, new ArrayList<SStructure>());
                 }
                 this.signalsForSecondaryEdge.get(secondaryEdge).add(signalNode);
             } else {
@@ -324,6 +328,17 @@ public class SqueezerModuleManipulator extends PepperManipulatorImpl {
             for (SNode n : this.getDocument().getDocumentGraph().getNodes()) {
                 if (n.getAnnotation(null, "kind") != null) {
                     layer = (SLayer) n.getLayers().toArray()[0];
+                }
+                if (n.getAnnotation("TEMP", "rstid2uuid") != null) {
+                    rstId2UUID = (Map<String, UUID>) n.getAnnotation("TEMP", "rstid2uuid").getValue();
+                    n.removeLabel("TEMP", "rstid2uuid");
+                    for (Map.Entry<String, UUID> kvp : rstId2UUID.entrySet()) {
+                        String id = kvp.getKey();
+                        UUID uuid = kvp.getValue();
+                        if (id.startsWith("token")) {
+                            this.tokenUUID2index.put(uuid, Integer.parseInt(id.substring(5)));
+                        }
+                    }
                 }
             }
             indexUuids();
