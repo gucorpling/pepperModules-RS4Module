@@ -10,7 +10,7 @@ Add a line like this to your `.pepperparams` file, *after* your `RSTImporter` mo
 
 ```xml
 <!-- Read RS4 file, construct basic RST structures -->
-<importer name="RSTImporter" path="rst_dev/bug_in_full/rst/GUM/">
+<importer name="RSTImporter" path="...">
   <!-- ... -->
 </importer>
 <!-- Merge RST graph with other graphs, if needed -->
