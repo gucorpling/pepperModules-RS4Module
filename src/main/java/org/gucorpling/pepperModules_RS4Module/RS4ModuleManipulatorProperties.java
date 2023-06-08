@@ -13,14 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.corpus_tools.pepperModules_SqueezerModule;
+package org.gucorpling.pepperModules_RS4Module;
 import org.corpus_tools.pepper.modules.PepperModuleProperties;
-import org.corpus_tools.pepper.modules.PepperModuleProperty;
+
 /**
  *
  * @author Luke Gessler
  */
-public class SqueezerModuleManipulatorProperties extends PepperModuleProperties {
-    public static final String PREFIX = "Squeezer.";
-    public SqueezerModuleManipulatorProperties() {}
+public class RS4ModuleManipulatorProperties extends PepperModuleProperties {
+    public static final String PREFIX = "RS4.";
+    public RS4ModuleManipulatorProperties() {}
 }

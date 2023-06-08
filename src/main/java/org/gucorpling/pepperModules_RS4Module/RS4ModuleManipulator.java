@@ -1,7 +1,6 @@
-package org.corpus_tools.pepperModules_SqueezerModule;
+package org.gucorpling.pepperModules_RS4Module;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 import org.corpus_tools.pepper.common.DOCUMENT_STATUS;
 import org.corpus_tools.pepper.common.PepperConfiguration;
@@ -9,19 +8,12 @@ import org.corpus_tools.pepper.impl.PepperManipulatorImpl;
 import org.corpus_tools.pepper.impl.PepperMapperImpl;
 import org.corpus_tools.pepper.modules.PepperManipulator;
 import org.corpus_tools.pepper.modules.PepperMapper;
-import org.corpus_tools.pepper.modules.PepperModule;
-import org.corpus_tools.pepper.modules.PepperModuleProperties;
-import org.corpus_tools.pepper.modules.exceptions.PepperModuleDataException;
-import org.corpus_tools.pepper.modules.exceptions.PepperModuleException;
 import org.corpus_tools.pepper.modules.exceptions.PepperModuleNotReadyException;
-import org.corpus_tools.salt.SALT_TYPE;
 import org.corpus_tools.salt.SaltFactory;
 import org.corpus_tools.salt.common.*;
 import org.corpus_tools.salt.core.*;
 import org.corpus_tools.salt.core.SGraph.GRAPH_TRAVERSE_TYPE;
 import org.corpus_tools.salt.graph.Identifier;
-import org.corpus_tools.salt.graph.Node;
-import org.corpus_tools.salt.graph.Relation;
 import org.eclipse.emf.common.util.URI;
 import org.osgi.service.component.annotations.Component;
 
@@ -31,12 +23,12 @@ import org.osgi.service.component.annotations.Component;
  *
  * @author Luke Gessler
  */
-@Component(name = "SqueezerModuleManipulatorComponent", factory = "PepperManipulatorComponentFactory")
-public class SqueezerModuleManipulator extends PepperManipulatorImpl {
+@Component(name = "RS4ModuleManipulatorComponent", factory = "PepperManipulatorComponentFactory")
+public class RS4ModuleManipulator extends PepperManipulatorImpl {
 
-    public SqueezerModuleManipulator() {
+    public RS4ModuleManipulator() {
         super();
-        setName("Squeezer");
+        setName("RS4");
         setSupplierContact(URI.createURI(PepperConfiguration.EMAIL));
         setSupplierHomepage(URI.createURI(PepperConfiguration.HOMEPAGE));
         setDesc("This manipulator deletes nodes with no annotations.");
@@ -50,12 +42,12 @@ public class SqueezerModuleManipulator extends PepperManipulatorImpl {
      *         connected to given {@link Identifier}
      */
     public PepperMapper createPepperMapper(Identifier Identifier) {
-        SqueezerModuleMapper mapper = new SqueezerModuleMapper();
+        RS4ModuleMapper mapper = new RS4ModuleMapper();
         return (mapper);
     }
 
 
-    public static class SqueezerModuleMapper extends PepperMapperImpl implements GraphTraverseHandler {
+    public static class RS4ModuleMapper extends PepperMapperImpl implements GraphTraverseHandler {
 
         private Map<String, UUID> rstId2UUID;
         private Map<UUID, Integer> tokenUUID2index;
@@ -66,7 +58,7 @@ public class SqueezerModuleManipulator extends PepperManipulatorImpl {
         private Map<String, SStructure> secondaryEdgeIndex = null;
         private Set<SDominanceRelation> primaryRelationsWithSignals = null;
 
-        public SqueezerModuleMapper() {
+        public RS4ModuleMapper() {
             tokenMap = new HashMap<>();
             tokenUUID2index = new HashMap<>();
             structureMap = new HashMap<>();

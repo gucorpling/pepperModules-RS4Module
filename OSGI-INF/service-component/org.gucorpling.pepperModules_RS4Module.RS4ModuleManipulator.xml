@@ -1,6 +1,6 @@
 <container xmlns="http://www.osgi.org/xmlns/scr/v1.1.0">
-  <component name="SqueezerModuleManipulatorComponent" factory="PepperManipulatorComponentFactory" activate="activate">
-    <implementation class="org.corpus_tools.pepperModules_SqueezerModule.SqueezerModuleManipulator"/>
+  <component name="RS4ModuleManipulatorComponent" factory="PepperManipulatorComponentFactory" activate="activate">
+    <implementation class="org.gucorpling.pepperModules_RS4Module.RS4ModuleManipulator"/>
     <service>
       <provide interface="java.lang.Thread$UncaughtExceptionHandler"/>
       <provide interface="org.corpus_tools.pepper.modules.PepperManipulator"/>
